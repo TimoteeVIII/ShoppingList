@@ -62,7 +62,7 @@ def login(request, payload: UserLoginSchema):
         return 403, {"message": "Invalid credentials"}
 
 
-@router.post("logout", response={200: dict})
+@router.post("logout", auth=django_auth, response={200: dict})
 def logout(request):
     django_logout(request)
     return 200, {"message": "Successfully Logged Out"}
