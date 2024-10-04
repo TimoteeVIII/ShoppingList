@@ -5,28 +5,30 @@ from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import login as django_login, authenticate, logout as django_logout
 from ninja.security import django_auth
+from django.http import JsonResponse
 
 router = Router()
 
 
 @router.get("health")
 def hello(request):
-    return 200, {"message": "Healthy Application"}
+    return JsonResponse({"message": "Healthy Application"}, status=200)
 
 
 @router.get("loggedin", auth=django_auth)
 def check_logged_in(request):
-    return 200, {"message": "Logged In"}
+    # request.session.cycle_key()
+    return JsonResponse({"message": "Logged In"}, status=200)
 
 
 @router.post("register", response={201: dict, 422: dict, 500: dict})
 def register(request, payload: UserCreateSchema):
     try:
         if User.objects.filter(username=payload.username).exists():
-            return 422, {"message": "Username taken"}
+            return JsonResponse({"message": "Username taken"}, status=422)
 
         if User.objects.filter(email=payload.email).exists():
-            return 422, {"message": "Email taken"}
+            return JsonResponse({"message": "Email taken"}, status=422)
 
         with transaction.atomic():
             user = User.objects.create(
@@ -39,30 +41,30 @@ def register(request, payload: UserCreateSchema):
             user.save()
 
         django_login(request, user)
-        return 201, {"message": "User created successfully"}
+        return JsonResponse({"message": "User created successfully"}, status=201)
     except Exception as e:
-        return 500, {"message": "Server Error"}
+        return JsonResponse({"message": "Server Error", "error": str(e)[0]}, status=500)
 
 
 @router.post("login", response={200: dict, 422: dict, 403: dict})
 def login(request, payload: UserLoginSchema):
     if not (payload.username or payload.email):
-        return 422, {"message": "Not provided email or username"}
+        return JsonResponse({"message": "Not provided email or username"}, status=422)
 
     try:
         user = User.objects.get(Q(username=payload.username) | Q(email=payload.email))
         user = authenticate(request, username=user.username, password=payload.password)
     except User.DoesNotExist:
-        return 403, {"message": "User doesn't exist"}
+        return JsonResponse({"message": "User doesn't exist"}, status=403)
 
     if user:
         django_login(request, user)
-        return 200, {"message": "Successfully logged in"}
+        return JsonResponse({"message": "Successfully logged in"}, status=200)
     else:
-        return 403, {"message": "Invalid credentials"}
+        return JsonResponse({"message": "Invalid credentials"}, status=403)
 
 
 @router.post("logout", auth=django_auth, response={200: dict})
 def logout(request):
     django_logout(request)
-    return 200, {"message": "Successfully Logged Out"}
+    return JsonResponse({"message": "Successfully Logged Out"}, status=200)
